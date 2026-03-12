@@ -1,0 +1,11 @@
+
+.env
+.DS_Store
+.codacy/
+
+# Generated outputs
+*.xlsx
+*.png
+
+# Cursor AI rules
+.cursor/
