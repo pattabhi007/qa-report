@@ -416,16 +416,41 @@ def _style_source_grouping(ws):
         prev_source = current_source
 
 
+def _env_summary_sheet(all_df, env_name):
+    """Aggregate totals per source for a given environment."""
+    env_df = all_df[all_df["Environment"] == env_name]
+    if env_df.empty:
+        return pd.DataFrame()
+
+    summary = env_df.groupby("Source").agg(
+        Runs=("RunID", "count"),
+        Total=("Total", "sum"),
+        Passed=("Passed", "sum"),
+        Failed=("Failed", "sum"),
+        Skipped=("Skipped", "sum"),
+    ).reset_index()
+    summary["Pass Rate %"] = (summary["Passed"] / summary["Total"] * 100).round(2).fillna(0)
+    return summary.sort_values("Source")
+
+
 def write_excel(all_df, qa_trend, staging_trend):
-    """Write Excel with a single unified latest-runs sheet."""
+    """Write Excel with unified latest-runs + per-environment analysis sheets."""
     report = _build_latest_report(all_df)
     if report.empty:
         print("  No data to write.")
         return
 
+    trends = {"genmax-qa": qa_trend, "genmax-staging": staging_trend}
+
     with pd.ExcelWriter(OUTPUT_EXCEL, engine="openpyxl") as writer:
         _write_sheet(writer, report, "Latest Runs")
         _style_source_grouping(writer.sheets["Latest Runs"])
+
+        for env_name, label in ENV_CONFIGS:
+            _write_sheet(writer, _env_summary_sheet(all_df, env_name), f"{label} Summary")
+
+        for env_name, label in ENV_CONFIGS:
+            _write_sheet(writer, trends[env_name], f"{label} Daily Trend")
 
     print(f"  Excel saved: {OUTPUT_EXCEL}")
 
